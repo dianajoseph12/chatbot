@@ -1,3 +1,4 @@
+import redis
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
@@ -7,9 +8,10 @@ from langchain.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.output_parsers import StrOutputParser
 from langchain.schema.runnable import RunnableMap
-
-
-client = chromadb.PersistentClient(path="./chroma")
+import json
+# Initialize Redis client
+r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+client = chromadb.PersistentClient(path="./docs/chroma")
 
 
 model = "BAAI/bge-base-en"
@@ -20,10 +22,10 @@ embedding_fn = HuggingFaceBgeEmbeddings(
     model_kwargs=model_kwargs,
     encode_kwargs=encode_kwargs
 )
-    
+
 #collection create
 def create_embeddingandcollection(collection_name, uploaded_file):
-
+# def create_embeddingandcollection(collection_name):
 
     # loaders = [PyPDFLoader("C:/Users/PearlSoft LT-119/basic_chatbot/docs/sample/paris.pdf")]
 
@@ -66,44 +68,63 @@ def create_embeddingandcollection(collection_name, uploaded_file):
         
     except Exception as e:
         print("Exception")
-       
 
 #model query
 def initialize_llm(query: str, collection_name):
     
     llm = HuggingFaceEndpoint(repo_id="mistralai/Mistral-7B-Instruct-v0.2")
-    
-    template = """Answer the question based only on the following context:
-        {context} . reply in a concise manner. If you don't know the answer reply with "I don't know" instead of guessing.
-         Answer strictly from {context}
-        
-    
-        Question: {question}
-        """
+    # llm = HuggingFaceEndpoint(repo_id="mistralai/Mistral-7B-Instruct-v0.3")
+
+    template = """
+You are assisting a user based on the following context and conversation history. The user may provide new statements or ask questions. For new statements say "I will remember that".
+Use the context and history to respond to question. If certain information (e.g., about a person or entity) is not present in the history, explicitly mention that.
+
+Context: {context}
+History: {history}
+Current User Input: {question}
+
+If you do not know the answer or the conversation history does not contain the requested information (e.g., about a friend or entity),
+ say "The conversation history does not mention any information about [entity_name]."
+
+Answer concisely and avoid guessing. Acknowledge new information when given, and add it to the {history}.
+"""
+
+
+
     prompt = PromptTemplate(
         template=template,
-        input_variables=["context", "question"]
+        input_variables=["context", "question", "history"]
     )
+
+
     context = Chroma( 
         embedding_function=embedding_fn, 
         client=client, 
         collection_name=collection_name,
        )
-    print(context._collection.count())
+    
     
     retriever = context.as_retriever(search_kwargs={"k": 4})
+    history = r.hgetall('admin3')
+    chat_history=json.dumps(history)
 
     rag_chain = RunnableMap({
         "context": lambda x: retriever.invoke(x["question"]),
         "question": lambda x: x["question"],
+       
+        "history" : lambda x: chat_history
 
     }) | prompt | llm | StrOutputParser()
 
-    # retrieved_context = retriever.invoke(query)
-    # print("Retrieved Context: \n", retrieved_context)
-
-    result = rag_chain.invoke({"question": query})
+    result = rag_chain.invoke({"question": query,"history":chat_history})
     print("Response : \n" + result)
+
+    r.hset('admin3', mapping={
+    query : result
+})
+    
+    # print("history",history)
+
     return result
 
 #delete collection
@@ -117,14 +138,18 @@ def delete_collection(collection_name):
 
 def main():
 
-    collection_name =  "paris"
+    collection_name =  "diana"
 
     # delete_collection(collection_name)
 
     # create_embeddingandcollection(collection_name)
     
-    initialize_llm("where is pais",collection_name)
+    initialize_llm("diana's qualification",collection_name)
 
 
 if __name__ == "__main__":
     main()
+
+
+
+
