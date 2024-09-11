@@ -1,0 +1,10 @@
+chromadb==0.5.5
+langchain==0.2.12
+langchain_chroma==0.1.2
+langchain_community==0.2.11
+langchain_core==0.2.29
+langchain_huggingface==0.0.3
+
+
+
+
