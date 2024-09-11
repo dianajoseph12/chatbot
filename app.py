@@ -89,6 +89,8 @@ def delete_collection(client, collection_name):
 
 def main():
 
+    # main function
+
     collection_name =  "romeoandjuliet"
 
     # delete_collection(client, collection_name)
