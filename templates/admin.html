@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>admin page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+
+</head>
+<body>
+        <h1>ADMIN: {{ user.username }}</h1>  
+   
+    
+        <div>
+            <button class="btn "> <a href="{% url 'add_holiday' %}">ADD HOLIDAY </a></button>
+            <button class="btn "> <a href="{% url 'logout_user' %}">LogOut</a></button>
+            <button id="toggleChatHistory">View Previous Chat</button>
+            <div id="previousChatContainer" style="display: none;">
+            
+       
+            </div>
+            </div>
+    
+    <label for="collection">Select a Collection to chat:</label>
+    <select name="collection_name" id="collection" onchange="handleCollectionChange()">
+        {% for collection in collections %}
+            <option value="{{ collection.collection_name }}">{{ collection.title }}</option>
+        {% empty %}
+            <option disabled>No collections available</option>
+        {% endfor %}
+
+        <option value="system">System</option>
+    
+       
+    </select>
+    <div>
+        <div id="chatbot">
+            <p class="botText"><span>Hi, there !</span></p>
+
+        </div>
+        <div id="userInput">
+            <input type="text" id="textInput" name="userMessage" placeholder="Type your message...">
+            <input type="submit" value="Chat" id="buttonInput">
+
+        </div>
+    </div>
+
+
+    
+    
+
+<script>
+
+function handleCollectionChange() {
+    var selectedCollection = document.getElementById('collection').value;
+
+    if (selectedCollection) {
+        console.log('Selected collection:', selectedCollection);
+        localStorage.setItem('selected_collection', selectedCollection);
+    } else {
+        console.log('No collection selected');
+    }
+}
+
+
+   function getUserResponse(){
+    var userText = $('#textInput').val();
+    var userHTML = "<p class = 'userText'>User: <span>"+userText+"</span> </p>";
+    let selected_collection = localStorage.getItem('selected_collection')
+    console.log("From get response",selected_collection)
+        $('#textInput').val("");
+
+        $('#chatbot').append(userHTML);
+
+        $.get('/getResponse', {userMessage : userText,collection_name : selected_collection}).done(function(data){
+            var returnedMessage = "<p class = 'botText'>Chatbot: <span>"+data+"</span> </p>";
+            
+                $('#chatbot').append(returnedMessage);
+    })
+
+   }
+   $('#buttonInput').click(function(){
+    getUserResponse();
+   })
+
+
+   $(document).ready(function() {
+    var chatVisible = false; 
+
+    $('#toggleChatHistory').click(function() {
+        if (!chatVisible) {
+            
+            $.get('/getChatHistory', function(data) {
+                if (data.chat_history && data.chat_history.length > 0) {
+                    var chatHTML = '';
+                    data.chat_history.forEach(function(chat) {
+                        chatHTML += "<p><span>" + chat + "</span></p>";
+                    });
+                    $('#previousChatContainer').html(chatHTML);
+                    $('#previousChatContainer').show(); 
+                } else {
+                    $('#previousChatContainer').html("<p>No chat history found.</p>");
+                    $('#previousChatContainer').show(); 
+                }
+            });
+        } else {
+            $('#previousChatContainer').hide();
+        }
+        chatVisible = !chatVisible; 
+    });
+});
+
+
+
+  
+</script>
+<form action="{% url 'upload' %}" method="POST" enctype="multipart/form-data">
+    
+    {% csrf_token %}
+    <p>{{ form.file_name }}</p>
+    <input type="file" name="file_name" />
+    <input type="text" name="title" placeholder="Collection Title"/>
+    <input type="text" name="description" placeholder="Collection Description" />
+    <button type="submit">Upload</button>
+</form>
+
+</body>
+</html>
